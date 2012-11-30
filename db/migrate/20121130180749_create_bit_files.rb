@@ -6,7 +6,7 @@ class CreateBitFiles < ActiveRecord::Migration
       t.string :name
       t.string :dx_name
       t.string :content_type
-      t.boolean :dx_ingested
+      t.boolean :dx_ingested, :default => false
 
       t.timestamps
     end

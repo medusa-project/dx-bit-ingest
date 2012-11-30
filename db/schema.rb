@@ -19,9 +19,9 @@ ActiveRecord::Schema.define(:version => 20121130180749) do
     t.string   "name"
     t.string   "dx_name"
     t.string   "content_type"
-    t.boolean  "dx_ingested"
-    t.datetime "created_at",   :null => false
-    t.datetime "updated_at",   :null => false
+    t.boolean  "dx_ingested",  :default => false
+    t.datetime "created_at",                      :null => false
+    t.datetime "updated_at",                      :null => false
   end
 
   add_index "bit_files", ["content_type"], :name => "index_bit_files_on_content_type"
