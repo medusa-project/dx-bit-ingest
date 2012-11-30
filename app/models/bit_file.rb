@@ -1,0 +1,8 @@
+class BitFile < ActiveRecord::Base
+  attr_accessible :content_type, :directory_id, :dx_ingested, :dx_name, :md5sum, :name
+  belongs_to :directory, :inverse_of => :bit_files
+
+  validates_presence_of :directory_id, :name
+  validates_uniqueness_of :name, :scope => :directory_id
+  validates_uniqueness_of :dx_name
+end

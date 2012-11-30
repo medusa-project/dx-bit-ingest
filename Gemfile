@@ -22,6 +22,10 @@ end
 
 gem 'jquery-rails'
 
+gem 'acts_as_tree'
+gem 'httparty'
+gem 'rb-readline'
+gem 'ruby-filemagic'
 # To use ActiveModel has_secure_password
 # gem 'bcrypt-ruby', '~> 3.0.0'
 
