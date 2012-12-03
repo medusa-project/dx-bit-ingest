@@ -27,7 +27,7 @@ gem 'mechanize'
 gem 'net-http-digest_auth', :git => 'git://github.com/medusa-project/net-http-digest_auth.git'
 
 gem 'rb-readline'
-gem 'ruby-filemagic'
+gem 'ruby-filemagic', :require => 'filemagic'
 gem 'uuid'
 # To use ActiveModel has_secure_password
 # gem 'bcrypt-ruby', '~> 3.0.0'

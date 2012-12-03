@@ -1,4 +1,5 @@
 require 'set'
+require 'fileutils'
 class Directory < ActiveRecord::Base
   attr_accessible :name
   acts_as_tree order: 'name'
@@ -9,39 +10,86 @@ class Directory < ActiveRecord::Base
   validates_uniqueness_of :name, :scope => :parent_id
 
   def bit_ingest(source_directory, opts = {})
+    Dir.chdir(source_directory) do
+      self.recursive_ingest('.', opts)
+    end
+  end
+
+  def bit_export(target_directory, opts = {})
+    FileUtils.mkdir_p(target_directory)
+    Dir.chdir(target_directory) do
+      self.recursive_export('.', opts)
+    end
+  end
+
+  def recursive_delete
+    #recursively delete subdirs
+    self.children.each do |subdir|
+      subdir.recursive_delete
+    end
+    self.bit_files.each do |bit_file|
+      bit_file.full_delete
+    end
+    self.bit_files(true)
+    self.destroy
+  end
+
+  def recursive_export(target_directory, opts = {})
+    Dir.chdir(target_directory) do
+      #export any files in this directory
+      self.bit_files.each do |bit_file|
+        #TODO for now just touch - actually export when they're really in the DX
+        FileUtils.touch(bit_file.name)
+      end
+      #recursively ensure child directories exist and export
+      self.children.each do |subdir|
+        FileUtils.mkdir_p(subdir.name)
+        subdir.recursive_export(subdir.name, opts)
+      end
+    end
+  end
+
+  def recursive_ingest(source_directory, opts = {})
+    Rails.logger.info "Bit ingesting directory #{source_directory}"
     #find all files and directories in the source directory
-    sources = (Dir[File.join(source_directory, '*')] + Dir[File.join(source_directory, '.*')].reject {|f| ['.', '..'].include?(File.basename(f))}).sort
-    source_dirs = sources.select {|s| File.directory?(s)}
-    source_files = sources.select {|s| File.file?(s)}
+    sources = (Dir[File.join(source_directory, '*')] + Dir[File.join(source_directory, '.*')].reject { |f| ['.', '..'].include?(File.basename(f)) }).sort
+    source_dirs = sources.select { |s| File.directory?(s) }
+    source_files = sources.select { |s| File.file?(s) }
     #ingest each file in the directory
     bit_ingest_files(source_files, opts)
     #ensure subdirectories are present
     subdirs = ensure_subdirectories(source_dirs, opts)
     #recursively ingest each subdirectory
-    subdirs.each {|subdir| subdir.bit_ingest(File.join(source_directory, subdir.name), opts)}
+    subdirs.each { |subdir| subdir.recursive_ingest(File.join(source_directory, subdir.name), opts) }
+    Rails.logger.info "Bit ingest finished for directory #{source_directory}"
   end
 
   def bit_ingest_files(files, opts = {})
+    Rails.logger.info "Bit ingesting files #{files.inspect}"
     #ensure file objects exist
     current_files = existing_file_names
     files.each do |file|
       name = File.basename(file)
       unless current_files.include?(name)
-        self.bit_files.create(:name => name)
+        Rails.logger.info "Creating Rails file #{name}"
+        bf = BitFile.new(:name => name, :directory_id => self.id)
+        bf.save!
+        Rails.logger.info "Bit File Count: #{BitFile.count}"
       end
     end
     #ingest into dx if necessary for each one
-    base_path = self.path
+    base_path = self.relative_path
     file_typer = FileMagic.new(FileMagic::MAGIC_MIME_TYPE)
     self.bit_files(true).each do |bit_file|
       unless bit_file.dx_ingested
-        file_path = File.join(base_path, bit_file.name)
+        file_path = base_path.blank? ? bit_file.name : File.join(base_path, bit_file.name)
+        Rails.logger.info "Doing file characteristics for #{file_path}"
         #compute file stuff as needed. Save file.
         bit_file.md5sum = Digest::MD5.file(file_path).base64digest
         bit_file.content_type = file_typer.file(file_path)
-        bit_file.dx_id = UUID.generate
         bit_file.save
         #ingest into DX
+        #Rails.logger.info "DX ingesting #{file_path}"
         #Dx.instance.ingest_file(file_path, bit_file)
         #mark as ingested and resave.
         #bit_file.dx_ingested = true
@@ -55,6 +103,7 @@ class Directory < ActiveRecord::Base
     dirs.each do |dir|
       name = File.basename(dir)
       unless current_subdirs.include?(name)
+        Rails.logger.info "Creating Rails subdirectory #{name}"
         self.children.create(:name => name)
       end
     end
@@ -62,17 +111,17 @@ class Directory < ActiveRecord::Base
   end
 
   def existing_file_names
-    self.bit_files.collect{|bf| bf.name}.to_set
+    self.bit_files.collect { |bf| bf.name }.to_set
   end
 
   def existing_subdirectory_names
-    self.children.collect {|dir| dir.name}.to_set
+    self.children.collect { |dir| dir.name }.to_set
   end
 
   def relative_path
     dirs = self.self_and_ancestors.reverse
     dirs.shift
-    File.join(*(dirs.collect {|dir| dir.name}))
+    File.join(*(dirs.collect { |dir| dir.name }))
   end
 
 end
