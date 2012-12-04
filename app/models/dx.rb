@@ -58,7 +58,7 @@ class Dx < Object
     config = YAML.load_file(File.join(Rails.root, 'config', 'dx.yml'))
     self.client = Mechanize.new.tap do |agent|
       config['hosts'].each do |host|
-        agent.add_auth(host, config['user'], config['password'])
+        agent.add_auth("http://#{host}", config['user'], config['password'])
       end
     end
     self.domain = config['domain']
