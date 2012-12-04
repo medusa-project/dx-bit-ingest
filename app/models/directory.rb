@@ -38,8 +38,7 @@ class Directory < ActiveRecord::Base
     Dir.chdir(target_directory) do
       #export any files in this directory
       self.bit_files.each do |bit_file|
-        #TODO for now just touch - actually export when they're really in the DX
-        FileUtils.touch(bit_file.name)
+        Dx.instance.export_file(bit_file, '.')
       end
       #recursively ensure child directories exist and export
       self.children.each do |subdir|
@@ -88,12 +87,11 @@ class Directory < ActiveRecord::Base
         bit_file.md5sum = Digest::MD5.file(file_path).base64digest
         bit_file.content_type = file_typer.file(file_path)
         bit_file.save
-        #ingest into DX
-        #Rails.logger.info "DX ingesting #{file_path}"
-        #Dx.instance.ingest_file(file_path, bit_file)
+        Rails.logger.info "DX ingesting #{file_path}"
+        Dx.instance.ingest_file(file_path, bit_file)
         #mark as ingested and resave.
-        #bit_file.dx_ingested = true
-        #bit_file.save
+        bit_file.dx_ingested = true
+        bit_file.save
       end
     end
   end

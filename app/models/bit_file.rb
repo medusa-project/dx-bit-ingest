@@ -13,7 +13,7 @@ class BitFile < ActiveRecord::Base
   end
 
   def full_delete
-    #TODO delete DX bits and mark not ingested
+    Dx.instance.delete_file(self)
     self.destroy
   end
 
