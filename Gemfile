@@ -15,7 +15,7 @@ group :assets do
   gem 'coffee-rails', '~> 3.2.1'
 
   # See https://github.com/sstephenson/execjs#readme for more supported runtimes
-  gem 'therubyracer', :platforms => :ruby
+  gem 'therubyracer', '~>0.10.2', :platforms => :ruby
 
   gem 'uglifier', '>= 1.0.3'
 end
@@ -23,7 +23,11 @@ end
 gem 'jquery-rails'
 
 gem 'acts_as_tree'
-gem 'mechanize'
+
+#use a forked version of mechanize that automatically follows redirects for all verbs with the same verb, as the
+#DX sometimes demands. A general purpose HTTP agent is not supposed to do this.
+gem 'mechanize', :git => 'git://github.com/medusa-project/mechanize.git'
+gem 'logger' #for debugging mechanize interactions
 gem 'net-http-digest_auth', :git => 'git://github.com/medusa-project/net-http-digest_auth.git'
 
 gem 'rb-readline'
