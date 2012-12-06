@@ -1,4 +1,5 @@
 require 'singleton'
+require 'fileutils'
 
 class Dx < Object
   include Singleton
@@ -24,8 +25,17 @@ class Dx < Object
   end
 
   def delete_file(bit_file, retries = 5)
-    self.client.delete(file_url(bit_file), {}, delete_headers(bit_file))
-    Rails.logger.info("DX Deleted #{bit_file.name}")
+    begin
+      Rails.logger.info("Trying to delete #{file_url(bit_file)} with #{delete_headers(bit_file)}")
+      response = self.client.delete(file_url(bit_file), {}, delete_headers(bit_file))
+      Rails.logger.info("DX Deleted #{bit_file.name}. HTTP Code: #{response.code}")
+    rescue Mechanize::ResponseCodeError => e
+      if e.response_code.to_i == 403 or e.response_code.to_i == 404
+        Rails.logger.info "#{bit_file.name} already deleted from DX."
+      else
+        raise e
+      end
+    end
   rescue Exception => e
     Rails.logger.error "Error DX Deleting #{bit_file.name}: #{e}"
     if retries == 0
@@ -60,6 +70,10 @@ class Dx < Object
       config['hosts'].each do |host|
         agent.add_auth("http://#{host}", config['user'], config['password'])
       end
+      logfile = File.join(Rails.root, 'log', 'mech.log')
+      FileUtils.touch(logfile)
+      agent.log = Logger.new(logfile)
+      agent.redirects_preserve_verb = true
     end
     self.domain = config['domain']
     self.entry_host = config['entry_host']

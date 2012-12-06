@@ -2,9 +2,9 @@ require 'set'
 require 'fileutils'
 class Directory < ActiveRecord::Base
   attr_accessible :name
-  acts_as_tree order: 'name'
+  has_many :bit_files, :dependent => :restrict, :order => 'name'
 
-  has_many :bit_files, :dependent => :restrict, :order => 'name', :inverse_of => :directory
+  acts_as_tree order: 'name'
 
   validates_presence_of :name
   validates_uniqueness_of :name, :scope => :parent_id
@@ -23,11 +23,12 @@ class Directory < ActiveRecord::Base
   end
 
   def recursive_delete
+    self.reload
     #recursively delete subdirs
-    self.children.each do |subdir|
+    self.children(true).each do |subdir|
       subdir.recursive_delete
     end
-    self.bit_files.each do |bit_file|
+    self.bit_files(true).each do |bit_file|
       bit_file.full_delete
     end
     self.bit_files(true)
