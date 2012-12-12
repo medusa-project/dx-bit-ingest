@@ -11,7 +11,7 @@ class Dx < Object
 
   def ingest_file(file_path, bit_file, retries = 5)
     content = File.open(file_path, 'rb') { |f| f.read }
-    self.client.post(file_url(bit_file), content, ingest_headers(bit_file))
+    self.client.post(file_url(bit_file), content, ingest_headers(bit_file, file_path))
     Rails.logger.info "DX Ingested #{bit_file.name}"
   rescue Exception => e
     Rails.logger.error "Error DX Ingesting #{bit_file.name}: #{e}"
@@ -85,11 +85,13 @@ class Dx < Object
     "http://#{self.entry_host}/#{self.bucket}/#{bit_file.dx_name}"
   end
 
-  def ingest_headers(bit_file)
+  def ingest_headers(bit_file, file_path)
     Hash.new.tap do |headers|
       headers['Host'] = self.domain if self.domain
       headers['Content-Type'] = bit_file.content_type || 'application/octet-stream'
       headers['Content-MD5'] = bit_file.md5sum if bit_file.md5sum
+      headers['x-bit-meta-ctime'] = File.ctime(file_path).to_s
+      headers['x-bit-meta-mtime'] = File.mtime(file_path).to_s
       if self.use_test_headers
         #set lifepoint to assure that content gets deleted after 2 weeks even if we don't clean it up manually
         headers['Lifepoint'] = ["[#{(Time.now + 2.weeks).httpdate}] reps=2, deletable=yes",
