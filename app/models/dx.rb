@@ -3,7 +3,7 @@ require 'fileutils'
 
 class Dx < Object
   include Singleton
-  attr_accessor :client, :domain, :entry_host, :bucket
+  attr_accessor :client, :domain, :entry_host, :bucket, :use_test_headers
 
   def initialize(args = {})
     self.configure
@@ -65,7 +65,7 @@ class Dx < Object
   end
 
   def configure
-    config = YAML.load_file(File.join(Rails.root, 'config', 'dx.yml'))
+    config = YAML.load_file(File.join(Rails.root, 'config', 'dx.yml'))[Rails.env]
     self.client = Mechanize.new.tap do |agent|
       config['hosts'].each do |host|
         agent.add_auth("http://#{host}", config['user'], config['password'])
@@ -78,6 +78,7 @@ class Dx < Object
     self.domain = config['domain']
     self.entry_host = config['entry_host']
     self.bucket = config['bucket']
+    self.use_test_headers = config['use_test_headers'] || false
   end
 
   def file_url(bit_file)
@@ -89,6 +90,11 @@ class Dx < Object
       headers['Host'] = self.domain if self.domain
       headers['Content-Type'] = bit_file.content_type || 'application/octet-stream'
       headers['Content-MD5'] = bit_file.md5sum if bit_file.md5sum
+      if self.use_test_headers
+        #set lifepoint to assure that content gets deleted after 2 weeks even if we don't clean it up manually
+        headers['Lifepoint'] = ["[#{(Time.now + 2.weeks).httpdate}] reps=2, deletable=yes",
+                                "[] delete"]
+      end
     end
   end
 
