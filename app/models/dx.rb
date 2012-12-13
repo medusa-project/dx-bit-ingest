@@ -9,18 +9,19 @@ class Dx < Object
     self.configure
   end
 
-  def ingest_file(file_path, bit_file, retries = 5)
+  def ingest_file(file_path, bit_file, opts = {})
+    opts[:retries] ||= 5
     content = File.open(file_path, 'rb') { |f| f.read }
-    self.client.post(file_url(bit_file), content, ingest_headers(bit_file, file_path))
+    self.client.post(file_url(bit_file), content, ingest_headers(bit_file, file_path, opts[:path]))
     Rails.logger.info "DX Ingested #{bit_file.name}"
   rescue Exception => e
     Rails.logger.error "Error DX Ingesting #{bit_file.name}: #{e}"
-    if retries == 0
+    if opts[:retries] == 0
       Rails.logger.error "Aborting."
       raise e
     else
       Rails.logger.info "Retrying."
-      ingest_file(file_path, bit_file, retries - 1)
+      ingest_file(file_path, bit_file, opts.merge(:retries => opts[:retries] - 1))
     end
   end
 
@@ -85,17 +86,20 @@ class Dx < Object
     "http://#{self.entry_host}/#{self.bucket}/#{bit_file.dx_name}"
   end
 
-  def ingest_headers(bit_file, file_path)
+  def ingest_headers(bit_file, file_path, path_from_root)
     Hash.new.tap do |headers|
       headers['Host'] = self.domain if self.domain
       headers['Content-Type'] = bit_file.content_type || 'application/octet-stream'
       headers['Content-MD5'] = bit_file.md5sum if bit_file.md5sum
       headers['x-bit-meta-ctime'] = File.ctime(file_path).to_s
       headers['x-bit-meta-mtime'] = File.mtime(file_path).to_s
+      headers['x-bit-meta-path'] = File.join(path_from_root, bit_file.name)
       if self.use_test_headers
         #set lifepoint to assure that content gets deleted after 2 weeks even if we don't clean it up manually
         headers['Lifepoint'] = ["[#{(Time.now + 2.weeks).httpdate}] reps=2, deletable=yes",
                                 "[] delete"]
+      else
+        headers['Lifepoint'] = "[] reps=3, deletable=yes"
       end
     end
   end

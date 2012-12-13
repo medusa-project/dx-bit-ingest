@@ -51,6 +51,8 @@ class Directory < ActiveRecord::Base
 
   def recursive_ingest(source_directory, opts = {})
     Rails.logger.info "Bit ingesting directory #{source_directory}"
+    #set the path if not passed
+    opts[:path] ||= self.path_from_root
     #find all files and directories in the source directory
     sources = (Dir[File.join(source_directory, '*')] + Dir[File.join(source_directory, '.*')].reject { |f| ['.', '..'].include?(File.basename(f)) }).sort
     source_dirs = sources.select { |s| File.directory?(s) }
@@ -60,7 +62,7 @@ class Directory < ActiveRecord::Base
     #ensure subdirectories are present
     subdirs = ensure_subdirectories(source_dirs, opts)
     #recursively ingest each subdirectory
-    subdirs.each { |subdir| subdir.recursive_ingest(File.join(source_directory, subdir.name), opts) }
+    subdirs.each { |subdir| subdir.recursive_ingest(File.join(source_directory, subdir.name), opts.merge(:path => File.join(opts[:path], subdir.name))) }
     Rails.logger.info "Bit ingest finished for directory #{source_directory}"
   end
 
@@ -89,7 +91,7 @@ class Directory < ActiveRecord::Base
         bit_file.content_type = file_typer.file(file_path)
         bit_file.save
         Rails.logger.info "DX ingesting #{file_path}"
-        Dx.instance.ingest_file(file_path, bit_file)
+        Dx.instance.ingest_file(file_path, bit_file, opts)
         #mark as ingested and resave.
         bit_file.dx_ingested = true
         bit_file.save
@@ -121,6 +123,10 @@ class Directory < ActiveRecord::Base
     dirs = self.self_and_ancestors.reverse
     dirs.shift
     File.join(*(dirs.collect { |dir| dir.name }))
+  end
+
+  def path_from_root
+    '/' + self.relative_path
   end
 
 end
