@@ -13,14 +13,14 @@ class BitFile < ActiveRecord::Base
   end
 
   def full_delete
-    self.dx_delete
+    self.dx_delete(false)
     self.destroy
   end
 
-  def dx_delete
+  def dx_delete(save = true)
     Dx.instance.delete_file(self)
     self.dx_ingested = false
-    self.save
+    self.save if save
   end
 
   def not_dx_ingested
