@@ -50,8 +50,16 @@ class Dx < Object
 
   def export_file(bit_file, target_directory, retries = 5)
     response = self.client.get(file_url(bit_file), [], nil, export_headers(bit_file))
-    File.open(File.join(target_directory, bit_file.name), 'wb') do |f|
+    filename = File.join(target_directory, bit_file.name)
+    File.open(filename, 'wb') do |f|
       f.write response.body
+      begin
+        atime = Time.parse(response.header['x-bit-meta-atime'])
+        mtime = Time.parse(response.header['x-bit-meta-mtime'])
+        File.utime(atime, mtime, bit_file.name)
+      rescue Exception => e
+        Rails.logger.error "Problem resetting atime and mtime for #{filename}. Skipping"
+      end
     end
     Rails.logger.info("DX exported file: #{bit_file.name}")
   rescue Exception => e
@@ -91,6 +99,7 @@ class Dx < Object
       headers['Host'] = self.domain if self.domain
       headers['Content-Type'] = bit_file.content_type || 'application/octet-stream'
       headers['Content-MD5'] = bit_file.md5sum if bit_file.md5sum
+      headers['x-bit-meta-atime'] = File.atime(file_path).to_s
       headers['x-bit-meta-ctime'] = File.ctime(file_path).to_s
       headers['x-bit-meta-mtime'] = File.mtime(file_path).to_s
       headers['x-bit-meta-path'] = File.join(path_from_root, bit_file.name)
