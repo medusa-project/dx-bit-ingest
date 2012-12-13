@@ -49,17 +49,14 @@ class Dx < Object
   end
 
   def export_file(bit_file, target_directory, retries = 5)
-    response = self.client.get(file_url(bit_file), [], nil, export_headers(bit_file))
     filename = File.join(target_directory, bit_file.name)
-    File.open(filename, 'wb') do |f|
-      f.write response.body
-      begin
-        atime = Time.parse(response.header['x-bit-meta-atime'])
-        mtime = Time.parse(response.header['x-bit-meta-mtime'])
-        File.utime(atime, mtime, bit_file.name)
-      rescue Exception => e
-        Rails.logger.error "Problem resetting atime and mtime for #{filename}. Skipping"
-      end
+    response = self.client.download(file_url(bit_file), filename, [], nil, export_headers(bit_file))
+    begin
+      atime = Time.parse(response.header['x-bit-meta-atime'])
+      mtime = Time.parse(response.header['x-bit-meta-mtime'])
+      File.utime(atime, mtime, bit_file.name)
+    rescue Exception => e
+      Rails.logger.error "Problem resetting atime and mtime for #{filename}. Skipping"
     end
     Rails.logger.info("DX exported file: #{bit_file.name}")
   rescue Exception => e
