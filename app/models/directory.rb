@@ -51,8 +51,7 @@ class Directory < ActiveRecord::Base
 
   def recursive_ingest(source_directory, opts = {})
     Rails.logger.info "Bit ingesting directory #{source_directory}"
-    #set the path if not passed
-    opts[:path] ||= self.path_from_root
+    initialize_ingest_opts(opts)
     #find all files and directories in the source directory
     sources = (Dir[File.join(source_directory, '*')] + Dir[File.join(source_directory, '.*')].reject { |f| ['.', '..'].include?(File.basename(f)) }).sort
     source_dirs = sources.select { |s| File.directory?(s) }
@@ -64,6 +63,11 @@ class Directory < ActiveRecord::Base
     #recursively ingest each subdirectory
     subdirs.each { |subdir| subdir.recursive_ingest(File.join(source_directory, subdir.name), opts.merge(:path => File.join(opts[:path], subdir.name))) }
     Rails.logger.info "Bit ingest finished for directory #{source_directory}"
+  end
+
+  def initialize_ingest_opts(opts)
+    opts[:path] ||= self.path_from_root
+    opts[:root_id] ||= self.root.id
   end
 
   def bit_ingest_files(files, opts = {})
