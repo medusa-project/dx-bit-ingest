@@ -71,16 +71,16 @@ class Directory < ActiveRecord::Base
   end
 
   def bit_ingest_files(files, opts = {})
-    Rails.logger.info "Bit ingesting files #{files.inspect}"
     #ensure file objects exist
     current_files = existing_file_names
-    files.each do |file|
-      name = File.basename(file)
-      unless current_files.include?(name)
-        Rails.logger.info "Creating Rails file #{name}"
-        bf = BitFile.new(:name => name, :directory_id => self.id)
-        bf.save!
-        Rails.logger.info "Bit File Count: #{BitFile.count}"
+    BitFile.transaction do
+      files.each do |file|
+        name = File.basename(file)
+        unless current_files.include?(name)
+          Rails.logger.info "Creating Rails file #{name}"
+          bf = BitFile.new(:name => name, :directory_id => self.id)
+          bf.save!
+        end
       end
     end
     #ingest into dx if necessary for each one
@@ -89,7 +89,6 @@ class Directory < ActiveRecord::Base
     self.bit_files(true).each do |bit_file|
       unless bit_file.dx_ingested
         file_path = base_path.blank? ? bit_file.name : File.join(base_path, bit_file.name)
-        Rails.logger.info "Doing file characteristics for #{file_path}"
         #compute file stuff as needed. Save file.
         bit_file.md5sum = Digest::MD5.file(file_path).base64digest
         bit_file.content_type = file_typer.file(file_path)
