@@ -19,6 +19,7 @@ class Dx < Object
       raise e
     else
       Rails.logger.error "Retrying. #{opts[:retries]} remaining."
+      sleep 1
       self.send(retry_function, *retry_arguments)
     end
   end
