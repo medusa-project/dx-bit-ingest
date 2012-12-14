@@ -10,7 +10,6 @@ class Dx < Object
   end
 
   def with_retries(opts, success_message, error_message, retry_function, *retry_arguments)
-    raise RuntimeException, "Intentional Error" if rand(500) == 0
     yield
     Rails.logger.info success_message
   rescue Exception => e
